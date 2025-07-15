@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freelancer Invoicing + Earnings Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- jsPDF and html2canvas for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #333;
+        }
+        .tab-button.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        /* Custom scrollbar for invoice items container */
+        .invoice-items-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .invoice-items-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .invoice-items-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .invoice-items-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-xl p-6 sm:p-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-gray-800">Freelancer Hub 🚀</h1>
+
+        <!-- Tab Navigation -->
+        <div class="flex justify-center mb-8">
+            <button id="invoiceTabBtn" class="tab-button active px-6 py-3 rounded-l-lg text-lg font-medium transition-all duration-300 ease-in-out hover:bg-indigo-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                Invoice Generator
+            </button>
+            <button id="trackerTabBtn" class="tab-button px-6 py-3 rounded-r-lg text-lg font-medium transition-all duration-300 ease-in-out hover:bg-indigo-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                Earnings Tracker
+            </button>
+        </div>
+
+        <!-- Invoice Generator Section -->
+        <div id="invoiceSection" class="tab-content">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-700">Create New Invoice</h2>
+
+            <!-- Company Details -->
+            <h3 class="text-xl font-medium mb-4 text-gray-700">Your Company Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                    <input type="text" id="companyName" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., Your Freelance Business">
+                </div>
+                <div>
+                    <label for="companyAddress" class="block text-sm font-medium text-gray-700 mb-1">Company Address</label>
+                    <textarea id="companyAddress" rows="3" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 456 Freelance St, City, Country"></textarea>
+                </div>
+                <div>
+                    <label for="companyEmail" class="block text-sm font-medium text-gray-700 mb-1">Company Email</label>
+                    <input type="email" id="companyEmail" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., info@yourbusiness.com">
+                </div>
+                <div>
+                    <label for="companyPhone" class="block text-sm font-medium text-gray-700 mb-1">Company Phone</label>
+                    <input type="tel" id="companyPhone" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., +91 98765 43210">
+                </div>
+            </div>
+
+            <h3 class="text-xl font-medium mb-4 text-gray-700">Client Details</h3>
+            <!-- Client Details -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="clientName" class="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
+                    <input type="text" id="clientName" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., Acme Corp">
+                    <div id="clientSuggestions" class="absolute z-10 bg-white shadow-lg rounded-md mt-1 w-auto max-h-48 overflow-y-auto"></div>
+                </div>
+                <div>
+                    <label for="clientAddress" class="block text-sm font-medium text-gray-700 mb-1">Client Address</label>
+                    <textarea id="clientAddress" rows="3" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., 123 Business Rd, City, Country"></textarea>
+                </div>
+            </div>
+
+            <!-- Invoice Details -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <div>
+                    <label for="invoiceNumber" class="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
+                    <input type="text" id="invoiceNumber" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="INV-001">
+                </div>
+                <div>
+                    <label for="invoiceDate" class="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+                    <input type="date" id="invoiceDate" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="dueDate" class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input type="date" id="dueDate" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+            </div>
+
+            <!-- Invoice Items -->
+            <h3 class="text-xl font-medium mb-4 text-gray-700">Invoice Items</h3>
+            <div id="invoiceItemsContainer" class="invoice-items-container space-y-4 max-h-96 overflow-y-auto pr-2 mb-6">
+                <!-- Invoice items will be added here by JavaScript -->
+            </div>
+            <button id="addItemBtn" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 mb-6">
+                + Add Item
+            </button>
+
+            <!-- Totals -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="taxRate" class="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
+                    <input type="number" id="taxRate" value="0" min="0" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="discount" class="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+                    <input type="number" id="discount" value="0" min="0" max="100" step="0.01" class="mt-1 block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+            </div>
+
+            <div class="text-right space-y-2 mb-8">
+                <p class="text-lg font-medium text-gray-700">Subtotal: <span id="subtotalDisplay">₹0.00</span></p>
+                <p class="text-lg font-medium text-gray-700">Tax (<span id="taxRateDisplay">0</span>%): <span id="taxAmountDisplay">₹0.00</span></p>
+                <p class="text-lg font-medium text-gray-700">Discount (<span id="discountDisplay">0</span>%): <span id="discountAmountDisplay">₹0.00</span></p>
+                <p class="text-xl font-bold text-gray-800">Grand Total: <span id="grandTotalDisplay">₹0.00</span></p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row justify-end gap-4">
+                <button id="generateInvoiceBtn" class="bg-indigo-600 text-white py-3 px-6 rounded-md text-lg font-semibold hover:bg-indigo-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                    Generate & Save Invoice
+                </button>
+            </div>
+        </div>
+
+        <!-- Earnings Tracker Section -->
+        <div id="trackerSection" class="tab-content hidden">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-700">Earnings Tracker</h2>
+
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-blue-50 p-6 rounded-lg shadow-md flex flex-col items-center justify-center">
+                    <p class="text-sm font-medium text-blue-700 mb-2">Total Income</p>
+                    <p id="totalIncomeDisplay" class="text-3xl font-bold text-blue-900">₹0.00</p>
+                </div>
+                <div class="bg-yellow-50 p-6 rounded-lg shadow-md flex flex-col items-center justify-center">
+                    <p class="text-sm font-medium text-yellow-700 mb-2">Unpaid Invoices</p>
+                    <p id="unpaidInvoicesDisplay" class="text-3xl font-bold text-yellow-900">₹0.00</p>
+                </div>
+                <div class="bg-purple-50 p-6 rounded-lg shadow-md flex flex-col items-center justify-center">
+                    <p class="text-sm font-medium text-purple-700 mb-2">Total Clients</p>
+                    <p id="totalClientsDisplay" class="text-3xl font-bold text-purple-900">0</p>
+                </div>
+            </div>
+
+            <!-- Top Clients and Invoice List -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div>
+                    <h3 class="text-xl font-medium mb-4 text-gray-700">Top Clients</h3>
+                    <ul id="topClientsList" class="bg-gray-50 p-4 rounded-lg shadow-inner max-h-64 overflow-y-auto">
+                        <li class="text-gray-500">No data yet. Generate some invoices!</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-xl font-medium mb-4 text-gray-700">All Invoices</h3>
+                    <div class="flex justify-between items-center mb-3">
+                        <label for="invoiceStatusFilter" class="text-sm font-medium text-gray-700">Filter by Status:</label>
+                        <select id="invoiceStatusFilter" class="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="all">All</option>
+                            <option value="paid">Paid</option>
+                            <option value="unpaid">Unpaid</option>
+                        </select>
+                    </div>
+                    <ul id="allInvoicesList" class="bg-gray-50 p-4 rounded-lg shadow-inner max-h-96 overflow-y-auto">
+                        <li class="text-gray-500">No invoices generated yet.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Earnings Chart -->
+            <h3 class="text-xl font-medium mb-4 text-gray-700">Earnings Overview</h3>
+            <div class="bg-gray-50 p-6 rounded-lg shadow-md">
+                <canvas id="earningsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Message Box Modal -->
+    <div id="messageBoxModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+            <p id="messageBoxText" class="text-lg font-medium text-gray-800 mb-4"></p>
+            <button id="messageBoxCloseBtn" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">OK</button>
+        </div>
+    </div>
+
+    <!-- PDF Export Options Modal -->
+    <div id="pdfOptionsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800">Export Invoice</h3>
+            <p class="text-gray-600 mb-6">Choose how you'd like to export the invoice:</p>
+            <div class="flex flex-col gap-4">
+                <button id="downloadPdfBtn" class="bg-blue-600 text-white py-3 px-6 rounded-md text-lg font-semibold hover:bg-blue-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    Download as PDF
+                </button>
+                <button id="saveJsonBtn" class="bg-gray-600 text-white py-3 px-6 rounded-md text-lg font-semibold hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                    Save Invoice Data (JSON)
+                </button>
+                <button id="cancelPdfExportBtn" class="bg-red-500 text-white py-3 px-6 rounded-md text-lg font-semibold hover:bg-red-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for elements
+        const invoiceTabBtn = document.getElementById('invoiceTabBtn');
+        const trackerTabBtn = document.getElementById('trackerTabBtn');
+        const invoiceSection = document.getElementById('invoiceSection');
+        const trackerSection = document.getElementById('trackerSection');
+
+        // Company Details Inputs
+        const companyNameInput = document.getElementById('companyName');
+        const companyAddressInput = document.getElementById('companyAddress');
+        const companyEmailInput = document.getElementById('companyEmail');
+        const companyPhoneInput = document.getElementById('companyPhone');
+
+        const clientNameInput = document.getElementById('clientName');
+        const clientAddressInput = document.getElementById('clientAddress');
+        const clientSuggestionsDiv = document.getElementById('clientSuggestions');
+        const invoiceNumberInput = document.getElementById('invoiceNumber');
+        const invoiceDateInput = document.getElementById('invoiceDate');
+        const dueDateInput = document.getElementById('dueDate');
+        const invoiceItemsContainer = document.getElementById('invoiceItemsContainer');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const taxRateInput = document.getElementById('taxRate');
+        const discountInput = document.getElementById('discount');
+        const subtotalDisplay = document.getElementById('subtotalDisplay');
+        const taxAmountDisplay = document.getElementById('taxAmountDisplay');
+        const taxRateDisplay = document.getElementById('taxRateDisplay');
+        const discountAmountDisplay = document.getElementById('discountAmountDisplay'); // New element for discount amount
+        const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+        const generateInvoiceBtn = document.getElementById('generateInvoiceBtn');
+
+        const totalIncomeDisplay = document.getElementById('totalIncomeDisplay');
+        const unpaidInvoicesDisplay = document.getElementById('unpaidInvoicesDisplay');
+        const totalClientsDisplay = document.getElementById('totalClientsDisplay');
+        const topClientsList = document.getElementById('topClientsList');
+        const allInvoicesList = document.getElementById('allInvoicesList');
+        const invoiceStatusFilter = document.getElementById('invoiceStatusFilter');
+        const earningsChartCanvas = document.getElementById('earningsChart');
+
+        const messageBoxModal = document.getElementById('messageBoxModal');
+        const messageBoxText = document.getElementById('messageBoxText');
+        const messageBoxCloseBtn = document.getElementById('messageBoxCloseBtn');
+
+        const pdfOptionsModal = document.getElementById('pdfOptionsModal');
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        const saveJsonBtn = document.getElementById('saveJsonBtn');
+        const cancelPdfExportBtn = document.getElementById('cancelPdfExportBtn');
+
+        // Data storage (in-memory for this example, could be localStorage/Firestore)
+        let invoices = JSON.parse(localStorage.getItem('invoices')) || [];
+        let clients = JSON.parse(localStorage.getItem('clients')) || []; // Simple client list for auto-fill
+        let companyDetails = JSON.parse(localStorage.getItem('companyDetails')) || {
+            name: '',
+            address: '',
+            email: '',
+            phone: ''
+        };
+
+        // Chart.js instance
+        let earningsChart;
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a custom message box.
+         * @param {string} message The message to display.
+         */
+        function showMessageBox(message) {
+            messageBoxText.textContent = message;
+            messageBoxModal.classList.remove('hidden');
+        }
+
+        /**
+         * Hides the custom message box.
+         */
+        function hideMessageBox() {
+            messageBoxModal.classList.add('hidden');
+        }
+
+        /**
+         * Formats a number as currency.
+         * @param {number} amount The amount to format.
+         * @returns {string} The formatted currency string.
+         */
+        function formatCurrency(amount) {
+            // Changed currency to INR (Indian Rupee)
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR'
+            }).format(amount);
+        }
+
+        /**
+         * Generates a unique ID for invoice items.
+         * @returns {string} A unique ID.
+         */
+        function generateUniqueId() {
+            return '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // --- Invoice Generation Functions ---
+
+        /**
+         * Adds a new invoice item row to the form.
+         */
+        function addInvoiceItem() {
+            const itemId = generateUniqueId();
+            const itemDiv = document.createElement('div');
+            itemDiv.id = `item-${itemId}`;
+            itemDiv.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-5', 'gap-4', 'p-4', 'bg-gray-50', 'rounded-md', 'shadow-sm', 'border', 'border-gray-200', 'items-end');
+            itemDiv.innerHTML = `
+                <div class="sm:col-span-2">
+                    <label for="description-${itemId}" class="block text-sm font-medium text-gray-700">Description</label>
+                    <input type="text" id="description-${itemId}" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="e.g., Web Design">
+                </div>
+                <div>
+                    <label for="quantity-${itemId}" class="block text-sm font-medium text-gray-700">Quantity</label>
+                    <input type="number" id="quantity-${itemId}" value="1" min="1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="rate-${itemId}" class="block text-sm font-medium text-gray-700">Rate (₹)</label>
+                    <input type="number" id="rate-${itemId}" value="0.00" min="0" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="flex justify-end sm:justify-start">
+                    <button type="button" data-item-id="${itemId}" class="remove-item-btn bg-red-500 text-white p-2 rounded-md hover:bg-red-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
+                        Remove
+                    </button>
+                </div>
+            `;
+            invoiceItemsContainer.appendChild(itemDiv);
+
+            // Add event listeners for input changes to recalculate totals
+            const quantityInput = itemDiv.querySelector(`#quantity-${itemId}`);
+            const rateInput = itemDiv.querySelector(`#rate-${itemId}`);
+            quantityInput.addEventListener('input', calculateTotals);
+            rateInput.addEventListener('input', calculateTotals);
+
+            // Add event listener for remove button
+            itemDiv.querySelector('.remove-item-btn').addEventListener('click', (e) => {
+                const idToRemove = e.target.dataset.itemId;
+                document.getElementById(`item-${idToRemove}`).remove();
+                calculateTotals(); // Recalculate after removing an item
+            });
+
+            calculateTotals(); // Initial calculation for the new item
+        }
+
+        /**
+         * Calculates subtotal, tax, and grand total based on invoice items.
+         */
+        function calculateTotals() {
+            let subtotal = 0;
+            const itemRows = invoiceItemsContainer.querySelectorAll('.grid.sm\\:grid-cols-5');
+
+            itemRows.forEach(row => {
+                const quantity = parseFloat(row.querySelector('input[type="number"][id^="quantity-"]').value) || 0;
+                const rate = parseFloat(row.querySelector('input[type="number"][id^="rate-"]').value) || 0;
+                subtotal += quantity * rate;
+            });
+
+            const taxRate = parseFloat(taxRateInput.value) || 0;
+            const discountPercentage = parseFloat(discountInput.value) || 0; // Get discount as percentage
+
+            const taxAmount = subtotal * (taxRate / 100);
+            const discountAmount = subtotal * (discountPercentage / 100); // Calculate discount amount
+
+            let grandTotal = subtotal + taxAmount - discountAmount;
+
+            // Ensure grand total doesn't go below zero
+            grandTotal = Math.max(0, grandTotal);
+
+            subtotalDisplay.textContent = formatCurrency(subtotal);
+            taxRateDisplay.textContent = taxRate;
+            taxAmountDisplay.textContent = formatCurrency(taxAmount);
+            discountDisplay.textContent = discountPercentage; // Display percentage
+            discountAmountDisplay.textContent = formatCurrency(discountAmount); // Display discount amount
+            grandTotalDisplay.textContent = formatCurrency(grandTotal);
+        }
+
+        /**
+         * Populates the invoice form with data from a selected client.
+         * @param {object} client The client object.
+         */
+        function populateClientDetails(client) {
+            clientNameInput.value = client.name;
+            clientAddressInput.value = client.address;
+            clientSuggestionsDiv.innerHTML = ''; // Clear suggestions
+            clientSuggestionsDiv.classList.add('hidden');
+        }
+
+        /**
+         * Handles client name input for suggestions.
+         */
+        function handleClientNameInput() {
+            const query = clientNameInput.value.toLowerCase();
+            clientSuggestionsDiv.innerHTML = '';
+            clientSuggestionsDiv.classList.add('hidden');
+
+            if (query.length > 0) {
+                const filteredClients = clients.filter(client =>
+                    client.name.toLowerCase().includes(query)
+                );
+
+                if (filteredClients.length > 0) {
+                    filteredClients.forEach(client => {
+                        const suggestionItem = document.createElement('div');
+                        suggestionItem.classList.add('p-2', 'cursor-pointer', 'hover:bg-gray-200', 'rounded-md');
+                        suggestionItem.textContent = client.name;
+                        suggestionItem.addEventListener('click', () => populateClientDetails(client));
+                        clientSuggestionsDiv.appendChild(suggestionItem);
+                    });
+                    clientSuggestionsDiv.classList.remove('hidden');
+                }
+            }
+        }
+
+        /**
+         * Generates and saves the invoice.
+         */
+        async function generateAndSaveInvoice() {
+            // Capture company details
+            companyDetails = {
+                name: companyNameInput.value.trim(),
+                address: companyAddressInput.value.trim(),
+                email: companyEmailInput.value.trim(),
+                phone: companyPhoneInput.value.trim()
+            };
+            localStorage.setItem('companyDetails', JSON.stringify(companyDetails));
+
+
+            const clientName = clientNameInput.value.trim();
+            const clientAddress = clientAddressInput.value.trim();
+            const invoiceNumber = invoiceNumberInput.value.trim();
+            const invoiceDate = invoiceDateInput.value;
+            const dueDate = dueDateInput.value;
+            const taxRate = parseFloat(taxRateInput.value) || 0;
+            const discountPercentage = parseFloat(discountInput.value) || 0;
+
+            if (!clientName || !invoiceNumber || !invoiceDate || !dueDate) {
+                showMessageBox('Please fill in all required invoice details (Client Name, Invoice Number, Dates).');
+                return;
+            }
+            if (!companyDetails.name || !companyDetails.address || !companyDetails.email || !companyDetails.phone) {
+                showMessageBox('Please fill in all your company details before generating an invoice.');
+                return;
+            }
+
+
+            const items = [];
+            const itemRows = invoiceItemsContainer.querySelectorAll('.grid.sm\\:grid-cols-5');
+            itemRows.forEach(row => {
+                const description = row.querySelector('input[type="text"][id^="description-"]').value.trim();
+                const quantity = parseFloat(row.querySelector('input[type="number"][id^="quantity-"]').value) || 0;
+                const rate = parseFloat(row.querySelector('input[type="number"][id^="rate-"]').value) || 0;
+
+                if (description && quantity > 0 && rate >= 0) {
+                    items.push({ description, quantity, rate });
+                }
+            });
+
+            if (items.length === 0) {
+                showMessageBox('Please add at least one valid invoice item.');
+                return;
+            }
+
+            const subtotal = parseFloat(subtotalDisplay.textContent.replace(/[^0-9.-]+/g, ""));
+            const taxAmount = parseFloat(taxAmountDisplay.textContent.replace(/[^0-9.-]+/g, ""));
+            const discountAmount = parseFloat(discountAmountDisplay.textContent.replace(/[^0-9.-]+/g, "")); // Get actual discount amount
+            const grandTotal = parseFloat(grandTotalDisplay.textContent.replace(/[^0-9.-]+/g, ""));
+
+            const newInvoice = {
+                id: generateUniqueId(),
+                clientName,
+                clientAddress,
+                invoiceNumber,
+                invoiceDate,
+                dueDate,
+                items,
+                taxRate,
+                discountPercentage, // Store percentage
+                discountAmount,     // Store calculated amount
+                subtotal,
+                taxAmount,
+                grandTotal,
+                status: 'unpaid', // Default status
+                createdAt: new Date().toISOString(),
+                companyDetails: companyDetails // Store company details with the invoice
+            };
+
+            invoices.push(newInvoice);
+            localStorage.setItem('invoices', JSON.stringify(invoices));
+
+            // Update clients list for auto-fill
+            if (!clients.some(client => client.name === clientName)) {
+                clients.push({ name: clientName, address: clientAddress });
+                localStorage.setItem('clients', JSON.stringify(clients));
+            }
+
+            showMessageBox('Invoice generated and saved successfully! You can now export it.');
+
+            // Show PDF options modal
+            pdfOptionsModal.classList.remove('hidden');
+        }
+
+        /**
+         * Creates a printable HTML structure for the invoice.
+         * @param {object} invoice The invoice object.
+         * @returns {string} The HTML string for the invoice.
+         */
+        function createInvoiceHtml(invoice) {
+            let itemsHtml = invoice.items.map(item => `
+                <tr class="border-b border-gray-200">
+                    <td class="py-2 px-4 text-left">${item.description}</td>
+                    <td class="py-2 px-4 text-right">${item.quantity}</td>
+                    <td class="py-2 px-4 text-right">${formatCurrency(item.rate)}</td>
+                    <td class="py-2 px-4 text-right">${formatCurrency(item.quantity * item.rate)}</td>
+                </tr>
+            `).join('');
+
+            // Use company details from the invoice object
+            const invoiceCompanyDetails = invoice.companyDetails || { name: 'Your Name/Company', address: 'Your Address', email: 'Your Email', phone: 'Your Phone' };
+
+            return `
+                <div class="p-8 bg-white rounded-lg shadow-md max-w-3xl mx-auto" style="font-family: 'Inter', sans-serif;">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">INVOICE</h1>
+
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <p class="font-semibold text-gray-700">From:</p>
+                            <p class="text-gray-600">${invoiceCompanyDetails.name}</p>
+                            <p class="text-gray-600">${invoiceCompanyDetails.address.replace(/\n/g, '<br>')}</p>
+                            <p class="text-gray-600">${invoiceCompanyDetails.email}</p>
+                            <p class="text-gray-600">${invoiceCompanyDetails.phone}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-semibold text-gray-700">Invoice #<span class="text-gray-600">${invoice.invoiceNumber}</span></p>
+                            <p class="font-semibold text-gray-700">Date: <span class="text-gray-600">${invoice.invoiceDate}</span></p>
+                            <p class="font-semibold text-gray-700">Due Date: <span class="text-gray-600">${invoice.dueDate}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="mb-8">
+                        <p class="font-semibold text-gray-700">Bill To:</p>
+                        <p class="text-gray-600">${invoice.clientName}</p>
+                        <p class="text-gray-600">${invoice.clientAddress.replace(/\n/g, '<br>')}</p>
+                    </div>
+
+                    <table class="w-full table-auto border-collapse mb-8">
+                        <thead>
+                            <tr class="bg-gray-100 border-b border-gray-300">
+                                <th class="py-2 px-4 text-left text-gray-700">Description</th>
+                                <th class="py-2 px-4 text-right text-gray-700">Qty</th>
+                                <th class="py-2 px-4 text-right text-gray-700">Rate</th>
+                                <th class="py-2 px-4 text-right text-gray-700">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHtml}
+                        </tbody>
+                    </table>
+
+                    <div class="text-right space-y-2">
+                        <p class="text-lg font-medium text-gray-700">Subtotal: <span class="text-gray-800">${formatCurrency(invoice.subtotal)}</span></p>
+                        <p class="text-lg font-medium text-gray-700">Tax (${invoice.taxRate}%): <span class="text-gray-800">${formatCurrency(invoice.taxAmount)}</span></p>
+                        <p class="text-lg font-medium text-gray-700">Discount (${invoice.discountPercentage}%): <span class="text-gray-800">${formatCurrency(invoice.discountAmount)}</span></p>
+                        <p class="text-xl font-bold text-gray-800">Grand Total: <span class="text-indigo-600">${formatCurrency(invoice.grandTotal)}</span></p>
+                    </div>
+
+                    <div class="mt-8 text-center text-gray-500 text-sm">
+                        <p>Thank you for your business!</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Downloads the last generated invoice as a PDF.
+         */
+        async function downloadInvoiceAsPdf() {
+            hideMessageBox(); // Hide any existing message box
+            pdfOptionsModal.classList.add('hidden'); // Hide PDF options modal
+
+            if (invoices.length === 0) {
+                showMessageBox('No invoice to export. Please generate an invoice first.');
+                return;
+            }
+
+            const lastInvoice = invoices[invoices.length - 1]; // Get the most recently generated invoice
+
+            // Create a temporary div to render the invoice HTML for html2canvas
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px'; // Position off-screen
+            tempDiv.style.width = '800px'; // Set a fixed width for consistent PDF generation
+            tempDiv.innerHTML = createInvoiceHtml(lastInvoice);
+            document.body.appendChild(tempDiv);
+
+            try {
+                const canvas = await html2canvas(tempDiv, { scale: 2 }); // Scale for better quality
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for units, 'a4' for size
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 297; // A4 height in mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save(`invoice_${lastInvoice.invoiceNumber}.pdf`);
+                showMessageBox('Invoice downloaded as PDF!');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showMessageBox('Failed to generate PDF. Please try again.');
+            } finally {
+                document.body.removeChild(tempDiv); // Clean up the temporary div
+            }
+        }
+
+        /**
+         * Saves the last generated invoice data as a JSON file.
+         */
+        function saveInvoiceDataAsJson() {
+            hideMessageBox(); // Hide any existing message box
+            pdfOptionsModal.classList.add('hidden'); // Hide PDF options modal
+
+            if (invoices.length === 0) {
+                showMessageBox('No invoice data to save. Please generate an invoice first.');
+                return;
+            }
+
+            const lastInvoice = invoices[invoices.length - 1];
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lastInvoice, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `invoice_data_${lastInvoice.invoiceNumber}.json`);
+            document.body.appendChild(downloadAnchorNode); // Required for Firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            showMessageBox('Invoice data saved as JSON!');
+        }
+
+        /**
+         * Resets the invoice form fields.
+         */
+        function resetInvoiceForm() {
+            // Reset company details fields
+            companyNameInput.value = companyDetails.name || '';
+            companyAddressInput.value = companyDetails.address || '';
+            companyEmailInput.value = companyDetails.email || '';
+            companyPhoneInput.value = companyDetails.phone || '';
+
+            clientNameInput.value = '';
+            clientAddressInput.value = '';
+            invoiceNumberInput.value = '';
+            invoiceDateInput.value = '';
+            dueDateInput.value = '';
+            invoiceItemsContainer.innerHTML = ''; // Clear all items
+            addInvoiceItem(); // Add one default item
+            taxRateInput.value = '0';
+            discountInput.value = '0';
+            calculateTotals();
+        }
+
+        // --- Earnings Tracker Functions ---
+
+        /**
+         * Renders the summary statistics for the earnings tracker.
+         */
+        function renderSummaryStats() {
+            const totalIncome = invoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+            const unpaidIncome = invoices.filter(inv => inv.status === 'unpaid').reduce((sum, inv) => sum + inv.grandTotal, 0);
+            const uniqueClients = new Set(invoices.map(inv => inv.clientName.toLowerCase()));
+
+            totalIncomeDisplay.textContent = formatCurrency(totalIncome);
+            unpaidInvoicesDisplay.textContent = formatCurrency(unpaidIncome);
+            totalClientsDisplay.textContent = uniqueClients.size;
+        }
+
+        /**
+         * Renders the top clients list.
+         */
+        function renderTopClients() {
+            topClientsList.innerHTML = '';
+            if (invoices.length === 0) {
+                topClientsList.innerHTML = '<li class="text-gray-500">No data yet. Generate some invoices!</li>';
+                return;
+            }
+
+            const clientEarnings = {};
+            invoices.forEach(invoice => {
+                clientEarnings[invoice.clientName] = (clientEarnings[invoice.clientName] || 0) + invoice.grandTotal;
+            });
+
+            const sortedClients = Object.entries(clientEarnings)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 5); // Top 5 clients
+
+            sortedClients.forEach(([client, earnings]) => {
+                const li = document.createElement('li');
+                li.classList.add('flex', 'justify-between', 'items-center', 'py-2', 'px-3', 'border-b', 'border-gray-200', 'last:border-b-0');
+                li.innerHTML = `<span class="font-medium text-gray-700">${client}</span> <span class="font-semibold text-indigo-600">${formatCurrency(earnings)}</span>`;
+                topClientsList.appendChild(li);
+            });
+        }
+
+        /**
+         * Renders the list of all invoices.
+         * @param {string} filterStatus The status to filter by ('all', 'paid', 'unpaid').
+         */
+        function renderAllInvoices(filterStatus = 'all') {
+            allInvoicesList.innerHTML = '';
+            if (invoices.length === 0) {
+                allInvoicesList.innerHTML = '<li class="text-gray-500">No invoices generated yet.</li>';
+                return;
+            }
+
+            const filteredInvoices = invoices.filter(inv =>
+                filterStatus === 'all' || inv.status === filterStatus
+            ).sort((a, b) => new Date(b.invoiceDate) - new Date(a.invoiceDate)); // Sort by date, newest first
+
+            filteredInvoices.forEach(invoice => {
+                const li = document.createElement('li');
+                li.classList.add('flex', 'flex-col', 'sm:flex-row', 'justify-between', 'items-start', 'sm:items-center', 'py-3', 'px-4', 'border-b', 'border-gray-200', 'last:border-b-0', 'bg-white', 'rounded-md', 'shadow-sm', 'mb-2');
+                li.innerHTML = `
+                    <div class="flex-grow mb-2 sm:mb-0">
+                        <p class="font-semibold text-gray-800">${invoice.clientName} - INV #${invoice.invoiceNumber}</p>
+                        <p class="text-sm text-gray-600">Due: ${invoice.dueDate} | Amount: ${formatCurrency(invoice.grandTotal)}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="px-3 py-1 text-xs font-semibold rounded-full ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </span>
+                        <button data-invoice-id="${invoice.id}" data-current-status="${invoice.status}" class="toggle-status-btn bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-md hover:bg-gray-300 transition-colors duration-200">
+                            Mark as ${invoice.status === 'paid' ? 'Unpaid' : 'Paid'}
+                        </button>
+                    </div>
+                `;
+                allInvoicesList.appendChild(li);
+            });
+
+            // Add event listeners for status toggle buttons
+            allInvoicesList.querySelectorAll('.toggle-status-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const invoiceId = e.target.dataset.invoiceId;
+                    toggleInvoiceStatus(invoiceId);
+                });
+            });
+        }
+
+        /**
+         * Toggles the paid/unpaid status of an invoice.
+         * @param {string} invoiceId The ID of the invoice to toggle.
+         */
+        function toggleInvoiceStatus(invoiceId) {
+            const invoiceIndex = invoices.findIndex(inv => inv.id === invoiceId);
+            if (invoiceIndex !== -1) {
+                invoices[invoiceIndex].status = invoices[invoiceIndex].status === 'paid' ? 'unpaid' : 'paid';
+                localStorage.setItem('invoices', JSON.stringify(invoices));
+                updateTrackerDashboard(); // Re-render tracker to reflect changes
+            }
+        }
+
+        /**
+         * Updates all components of the earnings tracker dashboard.
+         */
+        function updateTrackerDashboard() {
+            renderSummaryStats();
+            renderTopClients();
+            renderAllInvoices(invoiceStatusFilter.value);
+            renderEarningsChart();
+        }
+
+        /**
+         * Renders the earnings chart using Chart.js.
+         */
+        function renderEarningsChart() {
+            // Destroy existing chart if it exists
+            if (earningsChart) {
+                earningsChart.destroy();
+            }
+
+            if (invoices.length === 0) {
+                // Display a message if no data
+                const ctx = earningsChartCanvas.getContext('2d');
+                ctx.clearRect(0, 0, earningsChartCanvas.width, earningsChartCanvas.height);
+                ctx.font = '16px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#6b7280';
+                ctx.fillText('No earnings data to display yet.', earningsChartCanvas.width / 2, earningsChartCanvas.height / 2);
+                return;
+            }
+
+            // Group earnings by month
+            const monthlyEarnings = {};
+            invoices.forEach(invoice => {
+                const date = new Date(invoice.invoiceDate);
+                const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                monthlyEarnings[monthYear] = (monthlyEarnings[monthYear] || 0) + invoice.grandTotal;
+            });
+
+            const sortedMonths = Object.keys(monthlyEarnings).sort();
+            const labels = sortedMonths.map(my => {
+                const [year, month] = my.split('-');
+                const date = new Date(year, parseInt(month) - 1, 1);
+                return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+            });
+            const data = sortedMonths.map(my => monthlyEarnings[my]);
+
+            const ctx = earningsChartCanvas.getContext('2d');
+            earningsChart = new Chart(ctx, {
+                type: 'line', // Can be 'bar' or 'line'
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Monthly Earnings',
+                        data: data,
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)', // Indigo-500 with transparency
+                        borderColor: 'rgba(79, 70, 229, 1)', // Indigo-500
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3 // Smooth line
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Allow canvas to resize freely
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                }
+                            },
+                            bodyFont: {
+                                family: 'Inter'
+                            },
+                            titleFont: {
+                                family: 'Inter'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Earnings',
+                                font: {
+                                    family: 'Inter',
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                },
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Month',
+                                font: {
+                                    family: 'Inter',
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Inter'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Event Listeners ---
+
+        // Tab switching
+        invoiceTabBtn.addEventListener('click', () => {
+            invoiceTabBtn.classList.add('active');
+            trackerTabBtn.classList.remove('active');
+            invoiceSection.classList.remove('hidden');
+            trackerSection.classList.add('hidden');
+            resetInvoiceForm(); // Reset form when switching back to invoice
+        });
+
+        trackerTabBtn.addEventListener('click', () => {
+            trackerTabBtn.classList.add('active');
+            invoiceTabBtn.classList.remove('active');
+            trackerSection.classList.remove('hidden');
+            invoiceSection.classList.add('hidden');
+            updateTrackerDashboard(); // Update tracker data when switching
+        });
+
+        // Invoice form actions
+        addItemBtn.addEventListener('click', addInvoiceItem);
+        taxRateInput.addEventListener('input', calculateTotals);
+        discountInput.addEventListener('input', calculateTotals);
+        generateInvoiceBtn.addEventListener('click', generateAndSaveInvoice);
+        clientNameInput.addEventListener('input', handleClientNameInput);
+
+        // Hide client suggestions when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!clientNameInput.contains(event.target) && !clientSuggestionsDiv.contains(event.target)) {
+                clientSuggestionsDiv.classList.add('hidden');
+            }
+        });
+
+        // Message Box close button
+        messageBoxCloseBtn.addEventListener('click', hideMessageBox);
+
+        // PDF Options Modal buttons
+        downloadPdfBtn.addEventListener('click', downloadInvoiceAsPdf);
+        saveJsonBtn.addEventListener('click', saveInvoiceDataAsJson);
+        cancelPdfExportBtn.addEventListener('click', () => pdfOptionsModal.classList.add('hidden'));
+
+        // Tracker filter
+        invoiceStatusFilter.addEventListener('change', () => {
+            renderAllInvoices(invoiceStatusFilter.value);
+        });
+
+        // --- Initialization ---
+        window.onload = function() {
+            // Set current date for invoiceDate and dueDate (optional, user can change)
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 7); // Due in 7 days
+
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            invoiceDateInput.value = formatDate(today);
+            dueDateInput.value = formatDate(tomorrow);
+
+            // Load and pre-fill company details
+            if (companyDetails) {
+                companyNameInput.value = companyDetails.name || '';
+                companyAddressInput.value = companyDetails.address || '';
+                companyEmailInput.value = companyDetails.email || '';
+                companyPhoneInput.value = companyDetails.phone || '';
+            }
+
+            addInvoiceItem(); // Add one initial invoice item row
+            calculateTotals(); // Initial calculation
+            updateTrackerDashboard(); // Initial render of tracker
+        };
+    </script>
+</body>
+</html>
